@@ -27,6 +27,8 @@ db.createUser(
 exit;
 ```
 
+# 环境准备，除PHP环境外， 要安装mongo和zip的PHP扩展
+
 # 项目run起来， 后边的工作跟跑一个laravel项目无异了， copy .env.example .env 配置相关配置项， 这里连上我们的mongo数据库
 
 ```
