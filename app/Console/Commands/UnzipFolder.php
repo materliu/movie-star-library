@@ -19,12 +19,12 @@ class UnzipFolder extends Command
      *
      * @var string
      */
-    protected $description = '解压特定路径下的所有zip包，将其中的视频内容输出';
+    protected $description = '解压特定路径下的所有zip包，将其中的视频内容输出, 使用此工具的前提需本地安装有unar';
 
     private $folderNum = 0;
     private $zipExtractSuccess = 0;
     private $zipExtractFail = 0;
-    private $copiedMovie = 0;
+    private $copiedFile = 0;
     private $movieExtArr = [];
 
     /**
@@ -55,9 +55,60 @@ class UnzipFolder extends Command
 
         $this->copyMovieToDirectory($outputFolder);
 
-        $this->info("拷贝movie共{$this->copiedMovie}个");
+        $this->info("拷贝movie共{$this->copiedFile}个");
 
         return true;
+    }
+
+    function filterWhiteListFiles($files) {
+        $whiteListStr = env('FILE_WHITE_LIST', '.,..');
+        $whiteList = explode(',', $whiteListStr);
+        $_files = collect($files);
+
+        return ($_files->filter(function ($folder) use ($whiteList) {
+            foreach($whiteList as $whiteFile) {
+                if (strtolower(substr($folder, intval('-' . strlen($whiteFile)))) === $whiteFile) {
+                    return false;
+                }
+            }
+            return true;
+        }));
+    }
+
+    /**
+     * @param $files
+     * @param $prefix
+     * @return static
+     * 为路径添加前置路径，比如获取 /tmp的子文件为 1.zip, 将其拼为 /tmp/1.zip
+     */
+    function prefixPathInfo($files, $prefix) {
+        $files = collect($files);
+
+        return ($files->map(function ($value) use ($prefix) {
+            return $prefix . '/' . $value;
+        }));
+    }
+
+    /**
+     * @param $files
+     * @return static
+     * 获取视频文件
+     */
+    function getMovieFiles($files) {
+        $files = collect($files);
+
+        return ($files->filter(function ($file) {
+            if (is_file($file)) {
+                foreach($this->movieExtArr as $movieExt) {
+                    $movieExtLength = strlen($movieExt);
+
+                    if (strtolower(substr($file, intval('-'.$movieExtLength))) === $movieExt) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }));
     }
 
     function emptyFolder($input) {
@@ -65,20 +116,67 @@ class UnzipFolder extends Command
             $input = $input . '/{,.}*';
         }
 
-        $files = collect(glob($input, GLOB_BRACE)); // get all file names
+        $files = glob($input, GLOB_BRACE); // get all file names
 
-        $files = $files->filter(function ($file) {
-            return (substr($file, -1) !== '.') && (substr($file, -2) !== '..');
-        });
+        $files = $this->filterWhiteListFiles($files);
 
-        foreach($files as $file){ // iterate files
+        $files->each(function($file) {
             if(is_file($file)) {
                 unlink($file); // delete file
             } else {
                 $this->emptyFolder($file);
                 rmdir($file);
             }
-        }
+        });
+    }
+
+    /**
+     * @param $name
+     * @return mixed
+     * 尝试修复在zip解压过程中乱码的文件名, 判断是否是GBK编码的
+     */
+    function isFileNameGBK($name) {
+        $badCodeStr = '╟Θ┬┬╝╥└∩┼╛┼╛╓▒▓Ñ╕°┤≤╗∩╨└╔═├└┼«│ñ╡├╒µ╩╟▓╗┤φ╠∞╜≥─│╨ú╤╒╓╡╕▀╔φ▓─║├╡─╝½╞╖╧╡╗¿▒│╫┼─╨╙╤╙δ═┴║└╟Θ╚╦╛╞╡Ω┤≤╒╜,╛°╢╘╡─╝½╞╖┼«╔±╕╔╡─2╕÷┤≤─╠╫╙┬╥╗╬,╗╣▓╗═ú╡─╦╡ú║╧δ╥¬úí╤≤└╧═Γ├╫╕Γ╫ε╨┬┴≈│÷╢½▌╕│ñ╞╜╛╞╡Ω╦½╖╔┴╜╕÷║≤╣ñ│º┤≥╣ñ├├░í╟ß╡πú¼┤≤║┌î┼╖█╦┐▓╗╢«╡├┴»╧π╧º╙±╕≈╓╓╫╦╩╞▒¼▓σ┼«╔±╦╝╚≡í╛╟╪╧╚╔·í┐╡┌╬σ▓┐úí╩╫╖ó─ú╠╪τ≈τ≈╡─╡⌡┤°╦┐═αí╛╦┐═α├└═╚╧╡┴╨í┐╝½╞╖║┌╦┐├└═╚┼√╝τ╖ó┼«╔±╓≈╠Γ▒÷╣▌┬⌠┼¬╖τ╔º ┐Φ╧┬╔ε║φ╣ⁿî┼ ─╨╓≈╘┘╠≥├└▒½ ║≤╚δ╢Ñ▓┘│ñ═╚┼«╔±';
+
+        $badCode = str_split($badCodeStr);
+        $badCode = array_unique($badCode);
+        $badCode = collect($badCode);
+        $badFlag = false;
+
+        $badCode->each(function ($value) use ($name, &$badFlag) {
+            $name = collect(str_split($name));
+
+            $counter = 0;
+
+            foreach($name as $character) {
+                if ($character == $value) {
+                    $counter ++;
+                }
+
+                if ($counter > 5) {
+                    $badFlag = true;
+                    return false;
+                }
+            }
+        });
+
+        return $badFlag;
+    }
+
+    /**
+     * @param $files
+     * @param $output
+     * @return bool
+     * 直接拷贝文件
+     */
+    function copyFile($files, $output) {
+        $files->each(function ($value) use ($output) {
+            $this->copiedFile ++;
+            $_item = explode('/', $value);
+            $filename = $_item[count($_item) - 1];
+            copy($value, $output . '/' . $filename);
+        });
+        return true;
     }
 
     /**
@@ -91,42 +189,19 @@ class UnzipFolder extends Command
         if (is_dir($input)) {
             // do nothing
         } else {
-            return [];
+            return false;
         }
 
-        $list = collect(scandir($input));
+        $list = scandir($input);
+        $list = $this->prefixPathInfo($list, $input);
+        $folders = $this->filterWhiteListFiles($list);
 
-        for ($i=0,$j=count($list); $i<$j; $i++) {
-            $list[$i] = $input . '/' . $list[$i];
-        }
+        $movieFiles = $this->getMovieFiles($list);
+        $this->copyFile($movieFiles, $output);
 
-        $folders = $list->filter(function ($file) {
-            return is_dir($file) && (substr($file, -1) !== '.') && (substr($file, -2) !== '..' && (substr($file, -4) !== '.tmp') && (substr($file, -12) !== '$RECYCLE.BIN'));
+        $folders->each(function ($value) use ($output) {
+            $this->copyMovieToDirectory($output, $value, false);
         });
-
-        $movieFile = $list->filter(function ($file) {
-            if (is_file($file)) {
-                foreach($this->movieExtArr as $movieExt) {
-                    $movieExtLength = strlen($movieExt);
-
-                    if (strtolower(substr($file, intval('-'.$movieExtLength))) === $movieExt) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        });
-
-        foreach($movieFile as $item) {
-            $this->copiedMovie ++;
-            $_item = explode('/', $item);
-
-            copy($item, $output . '/' . $_item[count($_item) - 1]);
-        }
-
-        foreach($folders as $item) {
-            $this->copyMovieToDirectory($output, $item, false);
-        }
 
         if ($emptyInput) {
             $this->emptyFolder($input);
@@ -140,42 +215,49 @@ class UnzipFolder extends Command
         if (is_dir($input)) {
             $this->folderNum ++;
         } else {
-            return [];
+            return false;
         }
 
-        $list = collect(scandir($input));
+        $list = scandir($input);
+        $list = $this->prefixPathInfo($list, $input);
+        $folders = $this->filterWhiteListFiles($list);
 
-        for ($i=0,$j=count($list); $i<$j; $i++) {
-            $list[$i] = $input . '/' . $list[$i];
-        }
-
-        $folders = $list->filter(function ($file) {
-            return is_dir($file) && (substr($file, -1) !== '.') && (substr($file, -2) !== '..' && (substr($file, -4) !== '.tmp') && (substr($file, -12) !== '$RECYCLE.BIN'));
-        });
-
-        $zipFile = $list->filter(function ($file) {
+        $zipFiles = $list->filter(function ($file) {
             return is_file($file) && substr($file, -4) == '.zip';
         });
-
-        $zip = new ZipArchive;
 
         if (!file_exists($output)) {
             mkdir($output);
         }
 
-        foreach($zipFile as $item) {
+        $zip = new ZipArchive;
+        $zipFiles->each(function ($item) use ($zip, $output){
             if ($zip->open($item) === TRUE) {
-                $zip->extractTo($output);
+
+                $filenameGBK = false;
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    if($this->isFileNameGBK($zip->getNameIndex($i))) {
+                        $filenameGBK = true;
+                        break;
+                    }
+                }
+
+                if ($filenameGBK) {
+                    exec("unar -encoding GBK -output-directory $output -f $item");
+                } else {
+                    $zip->extractTo($output);
+                }
+
                 $zip->close();
                 $this->zipExtractSuccess ++;
             } else {
                 $this->zipExtractFail ++;
             }
-        }
+        });
 
-        foreach($folders as $item) {
+        $folders->each(function ($item) use ($output) {
             $this->directoryTraversalUnzip($item, $output);
-        }
+        });
 
         return true;
     }

@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Console\Commands\UnzipFolderTemp;
 use Illuminate\Console\Scheduling\Schedule;
 use App\Console\Commands\UnzipFolder;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -14,7 +15,8 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
-        UnzipFolder::class
+        UnzipFolder::class,
+        UnzipFolderTemp::class
     ];
 
     /**
