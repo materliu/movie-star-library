@@ -15,8 +15,7 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
-        UnzipFolder::class,
-        UnzipFolderTemp::class
+        UnzipFolder::class
     ];
 
     /**
