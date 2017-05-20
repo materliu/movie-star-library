@@ -2,6 +2,8 @@
 
 namespace App\Console;
 
+use App\Console\Commands\ChangeMongoNestedCollection;
+use App\Console\Commands\ChangeMongoRootValue;
 use App\Console\Commands\CopyMovie;
 use Illuminate\Console\Scheduling\Schedule;
 use App\Console\Commands\UnzipMovie;
@@ -16,7 +18,9 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         UnzipMovie::class,
-        CopyMovie::class
+        CopyMovie::class,
+        ChangeMongoNestedCollection::class,
+        ChangeMongoRootValue::class
     ];
 
     /**
