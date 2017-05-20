@@ -12,7 +12,7 @@ class UnzipMovie extends Command
      *
      * @var string
      */
-    protected $signature = 'unzip:movie {input} {output}';
+    protected $signature = 'unzip:movie {input} {output} {tmpFolder?}';
 
     /**
      * The console command description.
@@ -46,14 +46,24 @@ class UnzipMovie extends Command
     {
         $inputFolder = $this->argument('input');
         $outputFolder = $this->argument('output');
+        $zipFileTmpFolder = $this->argument('tmpFolder');
+        $zipFileTmpFolderRealpath = realpath($zipFileTmpFolder);
 
-        $this->directoryTraversalUnzip(realpath($inputFolder));
+        if ($zipFileTmpFolder) {
+            $this->directoryTraversalUnzip(realpath($inputFolder), $zipFileTmpFolderRealpath);
+        } else {
+            $this->directoryTraversalUnzip(realpath($inputFolder));
+        }
 
         $this->info("共牵扯目录{$this->folderNum}个");
         $this->info("解压成功zip包{$this->zipExtractSuccess}个");
         $this->info("解压失败zip包{$this->zipExtractFail}个");
 
-        $this->copyMovieToDirectory($outputFolder);
+        if ($zipFileTmpFolder) {
+            $this->copyMovieToDirectory($outputFolder, $zipFileTmpFolderRealpath);
+        } else {
+            $this->copyMovieToDirectory($outputFolder);
+        }
 
         $this->info("拷贝movie共{$this->copiedFile}个");
 
@@ -197,6 +207,7 @@ class UnzipMovie extends Command
         $folders = $this->filterWhiteListFiles($list);
 
         $movieFiles = $this->getMovieFiles($list);
+
         $this->copyFile($movieFiles, $output);
 
         $folders->each(function ($value) use ($output) {
