@@ -37,10 +37,10 @@ class CopyMovie extends Command
      */
     public function handle()
     {
-        $unzipFolder = new UnzipFolder();
+        $unzipMovie = new UnzipMovie();
         $inputFolder = $this->argument('input');
         $outputFolder = $this->argument('output');
 
-        return $unzipFolder->copyMovieToDirectory($outputFolder, $inputFolder, false);
+        return $unzipMovie->copyMovieToDirectory($outputFolder, $inputFolder, false);
     }
 }

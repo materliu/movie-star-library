@@ -3,9 +3,8 @@
 namespace App\Console;
 
 use App\Console\Commands\CopyMovie;
-use App\Console\Commands\UnzipFolderTemp;
 use Illuminate\Console\Scheduling\Schedule;
-use App\Console\Commands\UnzipFolder;
+use App\Console\Commands\UnzipMovie;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
 class Kernel extends ConsoleKernel
@@ -16,7 +15,7 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
-        UnzipFolder::class,
+        UnzipMovie::class,
         CopyMovie::class
     ];
 
